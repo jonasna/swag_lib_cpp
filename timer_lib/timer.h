@@ -6,8 +6,6 @@ class timer
 {
 
 	using condition_var = std::condition_variable;
-	using clock = std::chrono::steady_clock;
-	using time_stamp = std::chrono::time_point<clock>;
 	using duration = std::chrono::milliseconds;
 	using lock = std::mutex;
 	using scoped_lock = std::unique_lock<lock>;
@@ -21,6 +19,12 @@ public:
 
 	explicit timer(int ms_period);
 	~timer();
+
+	// Remove copy and move assignment/construction
+	timer(timer&&) = delete;
+	timer& operator=(timer&&) = delete;
+	timer(timer const&) = delete;
+	timer& operator=(timer const&) = delete;
 
 	timer_attachment_id attach_handler(handler_type handler);
 	bool detach_handler(timer_attachment_id id);
@@ -43,13 +47,22 @@ private:
 		timer_delegate& operator=(timer_delegate&& other) noexcept;
 		timer_delegate(timer_attachment_id id, handler_type handler) noexcept;
 
+		timer_delegate(timer_delegate const&) = delete;
+		timer_delegate& operator=(timer_delegate const&) = delete;
+
+		~timer_delegate() = default;
+
+		bool operator==(const timer_delegate& other) const;
+
 		timer_attachment_id info_id_;
 		handler_type target_handler_;
-		bool operator==(const timer_delegate& other) const;
 		bool active_;
+
 		// For synchronization on removal
 		std::unique_ptr<condition_var> wait_conditional;
 	};
+
+	bool remove_timer_delegate(scoped_lock& lock, std::vector<timer_delegate>::iterator& iter);
 
 	timer_attachment_id next_id_;
 	std::vector<timer_delegate> delegates_;
@@ -60,6 +73,5 @@ private:
 	condition_var signaler_;
 	std::thread worker_;
 	void timer_thread_worker();
-
 };
 

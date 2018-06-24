@@ -140,14 +140,12 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="timer.h" />
-    <ClInclude Include="timer_info.h" />
-    <ClInclude Include="timer_manager.h" />
+    <ClInclude Include="t_delegate.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
     <ClCompile Include="timer.cpp" />
-    <ClCompile Include="timer_info.cpp" />
-    <ClCompile Include="timer_manager.cpp" />
+    <ClCompile Include="t_delegate.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

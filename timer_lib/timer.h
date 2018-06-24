@@ -1,23 +1,28 @@
 #pragma once
 #include <condition_variable>
-#include <vector>
+#include <map>
+
+namespace details
+{
+	class t_delegate;
+}
 
 class timer
 {
-
-	using condition_var = std::condition_variable;
-	using duration = std::chrono::milliseconds;
-	using lock = std::mutex;
-	using scoped_lock = std::unique_lock<lock>;
-
+	
 public:
 
 	using timer_attachment_id = std::uint64_t;
-	using handler_type = std::function<void()>;
-
 	static timer_attachment_id constexpr invalid_id = timer_attachment_id(0);
+	
+	using handler_type = std::function<void()>;
+	using duration = std::chrono::milliseconds;
 
-	explicit timer(int ms_period);
+	/* Default period is 1000
+	 * early_invoking indicates whether to execute handlers as soon as a call to enable has been called.
+	 * If true handlers will be invoked at once. If false they will be invoked after period
+	 */
+	explicit timer(duration ms_period = duration(1000), bool early_invoking = true);
 	~timer();
 
 	// Remove copy and move assignment/construction
@@ -29,49 +34,45 @@ public:
 	timer_attachment_id attach_handler(handler_type handler);
 	bool detach_handler(timer_attachment_id id);
 
-	void set_period(int ms_period);
-	int get_period() const;
+	void clear();
+	std::size_t size() const noexcept;
+	bool empty() const noexcept;
 
-	void start();
-	void stop();
+	void set_period(duration ms_period);
+	duration get_period() const noexcept;
 
-	bool enable();
-	bool disable();
+	bool get_early_invoking() const noexcept;
+	void set_early_invoking(bool val);
+
+	void enable();
+	void disable();
 
 private:
 
-	struct timer_delegate
-	{
-		explicit timer_delegate(timer_attachment_id id = 0);
-		timer_delegate(timer_delegate&& other) noexcept;
-		timer_delegate& operator=(timer_delegate&& other) noexcept;
-		timer_delegate(timer_attachment_id id, handler_type handler) noexcept;
+	using condition_var = std::condition_variable;
+	using clock = std::chrono::steady_clock;
+	using timestamp = std::chrono::time_point<clock>;
+	using lock = std::mutex;
+	using scoped_lock = std::unique_lock<lock>;
+	using delegate_map = std::map<timer_attachment_id, details::t_delegate>;
 
-		timer_delegate(timer_delegate const&) = delete;
-		timer_delegate& operator=(timer_delegate const&) = delete;
-
-		~timer_delegate() = default;
-
-		bool operator==(const timer_delegate& other) const;
-
-		timer_attachment_id info_id_;
-		handler_type target_handler_;
-		bool active_;
-
-		// For synchronization on removal
-		std::unique_ptr<condition_var> wait_conditional;
-	};
-
-	bool remove_timer_delegate(scoped_lock& lock, std::vector<timer_delegate>::iterator& iter);
+	bool remove_timer_delegate(scoped_lock& lock, delegate_map::iterator& iter);
 
 	timer_attachment_id next_id_;
-	std::vector<timer_delegate> delegates_;
+	delegate_map delegates_;
+
 	duration period_;
-	bool running_;
+	duration first_shot_;
+	timestamp next_execution_point_;
+
+	bool running_; // running is purely for internal use
+	bool enabled_;
 
 	mutable lock lock_;
 	condition_var signaler_;
-	std::thread worker_;
+	std::thread worker_thread_;
 	void timer_thread_worker();
+
 };
+
 
